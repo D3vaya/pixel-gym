@@ -46,7 +46,7 @@ export const config = {
    * Run on every request EXCEPT Next internals and the favicon.
    * Static files in /public still go through proxy (so Basic Auth covers logos).
    */
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/cron).*)"],
 };
 
 function isAllowedOrigin(source: string): boolean {

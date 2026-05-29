@@ -1,7 +1,21 @@
 import { NextRequest } from "next/server";
 import sharp from "sharp";
+import { del as deleteBlob } from "@vercel/blob";
 import { branding } from "@/branding.config";
 import { getClientIp, getRatelimit } from "@/lib/rate-limit";
+
+async function safeDeleteBlob(url: string | undefined) {
+  if (!url) return;
+  try {
+    await deleteBlob(url);
+  } catch (err) {
+    // Logged, not thrown — cleanup is best-effort, never blocks the response.
+    console.warn("[adelgazapix] blob cleanup failed", {
+      url,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
 
 export const runtime = "nodejs";
 /**
@@ -198,7 +212,10 @@ export async function POST(req: NextRequest) {
   if (input.kind === "error") return input.response;
   const { buffer: inputBuffer, originalSize, cleanupBlobUrl } = input;
 
-  let webp: Buffer;
+  // Wrap the whole pipeline so the blob is deleted on every exit path:
+  // success, Sharp error, dimension reject — anything except a Vercel
+  // function-level kill (which no JS can catch). Orphans from that case
+  // are handled by the daily cleanup cron at /api/cron/cleanup.
   try {
     const pipeline = sharp(inputBuffer, {
       failOn: "error",
@@ -219,36 +236,31 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    webp = await pipeline
-      .rotate()
-      .webp({ quality: QUALITY, effort: EFFORT, smartSubsample: true })
-      .toBuffer();
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown decoding error";
-    return jsonError("DECODE_FAILED", `Could not decode image: ${msg}`, 422);
-  }
-
-  // Best-effort cleanup: remove the source blob now that we have the WebP.
-  if (cleanupBlobUrl) {
+    let webp: Buffer;
     try {
-      const { del } = await import("@vercel/blob");
-      await del(cleanupBlobUrl);
-    } catch {
-      /* swallow — the blob has a short TTL via Vercel's auto-cleanup anyway */
+      webp = await pipeline
+        .rotate()
+        .webp({ quality: QUALITY, effort: EFFORT, smartSubsample: true })
+        .toBuffer();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown decoding error";
+      return jsonError("DECODE_FAILED", `Could not decode image: ${msg}`, 422);
     }
-  }
 
-  return new Response(new Uint8Array(webp), {
-    status: 200,
-    headers: {
-      "Content-Type": "image/webp",
-      "Content-Length": String(webp.length),
-      "Cache-Control": "no-store",
-      "X-Content-Type-Options": "nosniff",
-      "X-Original-Bytes": String(originalSize),
-      "X-Webp-Bytes": String(webp.length),
-    },
-  });
+    return new Response(new Uint8Array(webp), {
+      status: 200,
+      headers: {
+        "Content-Type": "image/webp",
+        "Content-Length": String(webp.length),
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+        "X-Original-Bytes": String(originalSize),
+        "X-Webp-Bytes": String(webp.length),
+      },
+    });
+  } finally {
+    await safeDeleteBlob(cleanupBlobUrl);
+  }
 }
 
 export async function GET() {
