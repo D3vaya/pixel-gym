@@ -4,8 +4,6 @@
 
 :root {
   color-scheme: dark;
-  --background: #09060d;
-  --foreground: #fafafa;
 }
 
 html,
@@ -28,11 +26,15 @@ body {
 
 @layer utilities {
   .focus-ring {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wom-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)];
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)];
   }
   .bg-grid {
     background-image:
-      radial-gradient(circle at 1px 1px, rgba(168, 85, 247, 0.08) 1px, transparent 0);
+      radial-gradient(
+        circle at 1px 1px,
+        rgb(var(--brand-500) / 0.08) 1px,
+        transparent 0
+      );
     background-size: 24px 24px;
   }
 }

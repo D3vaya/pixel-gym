@@ -1,26 +1,21 @@
 import type { Config } from "tailwindcss";
 
+const SCALE = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as const;
+
+const brandColors = Object.fromEntries(
+  SCALE.map((k) => [k, `rgb(var(--brand-${k}) / <alpha-value>)`]),
+);
+
 export default {
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        wom: {
-          50: "#faf5ff",
-          100: "#f3e8ff",
-          200: "#e9d5ff",
-          300: "#d8b4fe",
-          400: "#c084fc",
-          500: "#a855f7",
-          600: "#9333ea",
-          700: "#7e22ce",
-          800: "#6b21a8",
-          900: "#581c87",
-          950: "#3b0764",
-        },
+        brand: brandColors,
       },
       fontFamily: {
         sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["var(--font-honk)", "system-ui", "sans-serif"],
       },
       animation: {
         "pulse-soft": "pulse-soft 2s ease-in-out infinite",

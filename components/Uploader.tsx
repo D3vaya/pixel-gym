@@ -17,6 +17,7 @@ import {
   SpinnerIcon,
   UploadIcon,
 } from "@/components/icons";
+import { branding } from "@/branding.config";
 
 type Status = "queued" | "uploading" | "processing" | "done" | "error";
 
@@ -30,9 +31,8 @@ type Item = {
   errorMessage?: string;
 };
 
-const MAX_FILE_BYTES = 25 * 1024 * 1024;
-const MAX_FILES = 100;
-const MAX_CONCURRENT = 4;
+const { maxFileBytes: MAX_FILE_BYTES, maxFiles: MAX_FILES, maxConcurrent: MAX_CONCURRENT } =
+  branding.processing;
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -310,7 +310,7 @@ export function Uploader() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "wom-webp.zip";
+      a.download = `${branding.brand.name.toLowerCase().replace(/[^a-z0-9]/g, "-")}-webp.zip`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -385,7 +385,7 @@ export function Uploader() {
             type="button"
             onClick={downloadZip}
             disabled={successItems.length === 0 || isDownloading}
-            className="focus-ring inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-wom-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-wom-500/20 transition hover:bg-wom-400 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500 disabled:shadow-none"
+            className="focus-ring inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-500/20 transition hover:bg-brand-400 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500 disabled:shadow-none"
           >
             {isDownloading ? (
               <>
@@ -448,12 +448,12 @@ function DropZone({
       onDrop={onDrop}
       className={`focus-ring group relative flex cursor-pointer flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl border border-dashed px-6 py-14 text-center transition-all duration-200 sm:py-16 ${
         isDragging
-          ? "border-wom-400 bg-wom-500/10 ring-1 ring-wom-400/40"
-          : "border-neutral-800 bg-neutral-950/40 hover:border-wom-500/50 hover:bg-neutral-900/60"
+          ? "border-brand-400 bg-brand-500/10 ring-1 ring-brand-400/40"
+          : "border-neutral-800 bg-neutral-950/40 hover:border-brand-500/50 hover:bg-neutral-900/60"
       }`}
     >
       <div
-        className={`flex h-12 w-12 items-center justify-center rounded-xl bg-wom-500/10 text-wom-300 transition-transform duration-200 ${
+        className={`flex h-12 w-12 items-center justify-center rounded-xl bg-brand-500/10 text-brand-300 transition-transform duration-200 ${
           isDragging ? "scale-110" : "group-hover:scale-105"
         }`}
       >
@@ -499,7 +499,7 @@ function Summary({
             {stats.done}/{stats.total}
           </span>
           {stats.active > 0 && (
-            <span className="text-wom-300">· {stats.active} en curso</span>
+            <span className="text-brand-300">· {stats.active} en curso</span>
           )}
           {stats.error > 0 && (
             <span className="text-red-400">· {stats.error} con error</span>
@@ -523,7 +523,7 @@ function Summary({
       >
         <div
           className={`h-full transition-all duration-300 ${
-            allFinished ? "bg-emerald-500" : "bg-wom-500"
+            allFinished ? "bg-emerald-500" : "bg-brand-500"
           }`}
           style={{ width: `${stats.overall}%` }}
         />
@@ -597,7 +597,7 @@ function FileRow({
               type="button"
               onClick={onDownload}
               aria-label={`Descargar ${file.name}`}
-              className="focus-ring cursor-pointer rounded-md p-1.5 text-neutral-500 transition-colors hover:bg-neutral-900 hover:text-wom-300"
+              className="focus-ring cursor-pointer rounded-md p-1.5 text-neutral-500 transition-colors hover:bg-neutral-900 hover:text-brand-300"
             >
               <DownloadIcon className="h-4 w-4" />
             </button>
@@ -631,7 +631,7 @@ function StatusIcon({ status }: { status: Status }) {
     );
   if (status === "uploading" || status === "processing")
     return (
-      <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-wom-500/15 text-wom-300">
+      <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-brand-500/15 text-brand-300">
         <SpinnerIcon className="h-4 w-4" />
       </span>
     );
@@ -656,8 +656,8 @@ function ProgressBar({ status, progress }: { status: Status; progress: number })
             : isDone
               ? "bg-emerald-500"
               : status === "processing"
-                ? "bg-wom-400 animate-pulse-soft"
-                : "bg-wom-500"
+                ? "bg-brand-400 animate-pulse-soft"
+                : "bg-brand-500"
         }`}
         style={{ width: `${fill}%` }}
       />
@@ -683,7 +683,7 @@ function StatusLabel({ status, progress }: { status: Status; progress: number })
         ? "text-red-400"
         : status === "queued"
           ? "text-neutral-500"
-          : "text-wom-300";
+          : "text-brand-300";
   return (
     <span className={`flex-shrink-0 text-[11px] tabular-nums ${color}`}>{label}</span>
   );

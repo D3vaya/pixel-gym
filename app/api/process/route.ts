@@ -1,26 +1,20 @@
 import { NextRequest } from "next/server";
 import sharp from "sharp";
+import { branding } from "@/branding.config";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
-const QUALITY = 75;
-const EFFORT = 6;
-const MAX_FILE_BYTES = 25 * 1024 * 1024;
-const MAX_DIMENSION = 12000;
+const {
+  quality: QUALITY,
+  effort: EFFORT,
+  maxFileBytes: MAX_FILE_BYTES,
+  maxDimension: MAX_DIMENSION,
+  allowedMime,
+} = branding.processing;
 
-const ALLOWED_MIME = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/avif",
-  "image/gif",
-  "image/tiff",
-  "image/svg+xml",
-  "image/heic",
-  "image/heif",
-]);
+const ALLOWED_MIME = new Set<string>(allowedMime);
 
 type ErrorCode =
   | "INVALID_FORM"
@@ -83,7 +77,10 @@ export async function POST(req: NextRequest) {
 
   let webp: Buffer;
   try {
-    const pipeline = sharp(inputBuffer, { failOn: "error", limitInputPixels: 268_402_689 });
+    const pipeline = sharp(inputBuffer, {
+      failOn: "error",
+      limitInputPixels: MAX_DIMENSION * MAX_DIMENSION,
+    });
     const meta = await pipeline.metadata();
 
     if (
