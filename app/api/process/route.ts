@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
 import sharp from "sharp";
 import { branding } from "@/branding.config";
+import { getClientIp, getRatelimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 30;
 export const dynamic = "force-dynamic";
 
 const {
@@ -23,17 +24,49 @@ type ErrorCode =
   | "UNSUPPORTED_TYPE"
   | "DECODE_FAILED"
   | "IMAGE_TOO_LARGE"
+  | "RATE_LIMITED"
   | "INTERNAL";
 
 function errorBody(code: ErrorCode, message: string, details?: Record<string, unknown>) {
   return { error: { code, message, ...(details && { details }) } };
 }
 
-function jsonError(code: ErrorCode, message: string, status: number, details?: Record<string, unknown>) {
-  return Response.json(errorBody(code, message, details), { status });
+function jsonError(
+  code: ErrorCode,
+  message: string,
+  status: number,
+  details?: Record<string, unknown>,
+  extraHeaders?: Record<string, string>,
+) {
+  return Response.json(errorBody(code, message, details), {
+    status,
+    headers: extraHeaders,
+  });
 }
 
 export async function POST(req: NextRequest) {
+  // ---- Rate limit (no-op if UPSTASH_* env vars are not set) ----
+  const limiter = getRatelimit();
+  if (limiter) {
+    const ip = getClientIp(req);
+    const { success, limit, remaining, reset } = await limiter.limit(ip);
+    const retryAfter = Math.max(1, Math.ceil((reset - Date.now()) / 1000));
+    const rateHeaders = {
+      "X-RateLimit-Limit": String(limit),
+      "X-RateLimit-Remaining": String(Math.max(0, remaining)),
+      "X-RateLimit-Reset": String(reset),
+    };
+    if (!success) {
+      return jsonError(
+        "RATE_LIMITED",
+        "Too many requests. Try again in a moment.",
+        429,
+        { retryAfterSeconds: retryAfter },
+        { ...rateHeaders, "Retry-After": String(retryAfter) },
+      );
+    }
+  }
+
   let formData: FormData;
   try {
     formData = await req.formData();

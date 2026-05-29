@@ -156,6 +156,63 @@ Los mismos valores se importan tanto en el cliente (`components/Uploader.tsx`) c
 
 ---
 
+## Production hardening
+
+Un endpoint público que corre Sharp es un blanco fácil para abuso (CPU bombs, hotlinking, scraping). Todas las protecciones son **opt-in** vía env vars — sin configurarlas, la app sigue funcionando "abierta" (modo dev).
+
+### Capa 0 — En Vercel dashboard (zero código, haz esto sí o sí)
+
+| Acción | Dónde | Por qué |
+|---|---|---|
+| **Spend cap** | Settings → Billing → Spend Management | Límite duro en USD. Si lo superas, la app se pausa en vez de seguir cobrando. |
+| **Usage alerts** | Settings → Billing → Notifications | Notificación a 50/80/100 % del cap. |
+| **WAF Rate Limit** | Project → Firewall → Rate Limit | Regla simple: 10 req/min/IP en `/api/process`. Gratis hasta cuota. |
+| **Vercel BotID** | Project → Firewall → BotID | Bloqueo automático de bots no humanos. |
+| **Attack Mode** | Project → Firewall (toggle) | Switch de emergencia con challenge global. |
+
+### Capa 1 — En código (vía env vars)
+
+Copia `.env.example` a `.env.local` y activa lo que necesites:
+
+```bash
+# Basic Auth global (browser pide credenciales)
+ACCESS_USER=admin
+ACCESS_PASS=replace-with-a-strong-password
+
+# Anti-hotlinking: solo aceptar POSTs desde estos dominios (comma-separated)
+ALLOWED_ORIGIN=https://pixel-gym.vercel.app,http://localhost:3000
+
+# Rate limit persistente por IP (20 req/min, sliding window)
+# Free tier en https://upstash.com
+UPSTASH_REDIS_REST_URL=https://xxx.upstash.io
+UPSTASH_REDIS_REST_TOKEN=AYTk...
+```
+
+Cómo se enforzan:
+
+- **Basic Auth** (`middleware.ts`): cubre página + API + assets de `/public`. Browser cachea credenciales por origen tras el primer prompt.
+- **Origin/Referer check** (`middleware.ts`): solo aplica a métodos mutating. Bloquea sitios terceros que intenten usar tu endpoint como CDN.
+- **Rate limit** (`app/api/process/route.ts` vía `lib/rate-limit.ts`): chequea Upstash antes de hacer cualquier trabajo. Devuelve `429` + `Retry-After` cuando se excede. Headers `X-RateLimit-*` en cada respuesta.
+
+Para producción en Vercel, define las env vars en `Project Settings → Environment Variables` (no en `.env.local`).
+
+### Capa 2 — Hardening adicional
+
+Si la cosa escala o se expone más:
+
+- **Sign in con Vercel** / Clerk / Auth0 → reemplaza Basic Auth con auth real con sesiones.
+- **Vercel Sandbox** → ejecuta Sharp en microVM aislado para reducir blast radius.
+- **Vercel Queues** → cola asíncrona: el endpoint devuelve un job ID y un worker procesa con throughput controlado.
+- **CDN cache por hash** → mismo input no se re-procesa.
+
+### Notas de operación
+
+- `maxDuration` está en **30s** (era 60s). Si una imagen tarda más, casi seguro es ataque o decompression bomb.
+- El bundle del servidor incluye `@upstash/ratelimit` aunque no esté configurado (~50 KB extra). Si necesitas evitarlo, conviértelo a `dynamic import` en `lib/rate-limit.ts`.
+- `next.config.ts` ya emite security headers (CSP, X-Frame-Options, HSTS en prod, etc.) en todas las rutas.
+
+---
+
 ## Cómo está cableado
 
 ```
